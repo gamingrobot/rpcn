@@ -9,6 +9,7 @@ enum TicketData {
 	Binary(Vec<u8>),
 	BString(Vec<u8>),
 	Blob(u8, Vec<TicketData>),
+	BinaryBlob(u8, Vec<u8>),
 }
 
 impl TicketData {
@@ -21,6 +22,7 @@ impl TicketData {
 			TicketData::Time(_) => 7,
 			TicketData::Binary(_) => 8,
 			TicketData::Blob(id, _) => (0x3000 | (*id as u16)),
+			TicketData::BinaryBlob(id, _) => (0x3000 | (*id as u16)),
 		}
 	}
 
@@ -33,6 +35,7 @@ impl TicketData {
 			TicketData::Time(_) => 8,
 			TicketData::Binary(binary_data) => binary_data.len() as u16,
 			TicketData::Blob(_, sdata) => sdata.iter().map(|x| x.len() + 4).sum(),
+			TicketData::BinaryBlob(_, binary_data) => binary_data.len() as u16,
 		}
 	}
 
@@ -51,6 +54,7 @@ impl TicketData {
 					sub.write(dest);
 				}
 			}
+			TicketData::BinaryBlob(_, binary_data) => dest.extend(binary_data),
 		}
 	}
 }
@@ -93,9 +97,9 @@ impl Ticket {
 						TicketData::Binary(vec!['b' as u8, 'r' as u8, 0, 0]),  // region (yes you're going to brazil)
 						TicketData::BString(vec!['u' as u8, 'n' as u8, 0, 0]), // domain
 						TicketData::Binary(service_id),
-						TicketData::U32(0),  // status
-						TicketData::Empty(), // status_duration
-						TicketData::Empty(), // date_of_birth
+						TicketData::BinaryBlob(0x11, vec![0x07, 0xBD, 0x02, 0x1D]), //date_of_birth
+						TicketData::U32(50 >> 0x18),  // status
+						TicketData::BinaryBlob(0x10, vec![0, 0, 0, 0]) //unknown
 					],
 				),
 				TicketData::Blob(2, vec![TicketData::Binary(vec![0, 0, 0, 0]), TicketData::Binary([0; 0x38].to_vec())]),
@@ -107,7 +111,7 @@ impl Ticket {
 		let mut ticket_blob: Vec<u8> = Vec::new();
 
 		// Version
-		ticket_blob.extend(&(0x21010000 as u32).to_be_bytes());
+		ticket_blob.extend(&(0x31000000 as u32).to_be_bytes());
 
 		let size: u32 = self.data.iter().map(|x| (x.len() + 4) as u32).sum::<u32>();
 		ticket_blob.extend(&size.to_be_bytes());
